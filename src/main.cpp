@@ -1,22 +1,68 @@
-#include "clang/Tooling/CommonOptionsParser.h"
-#include "clang/Tooling/Tooling.h"
-#include <iostream>
-#include <llvm-14/llvm/Support/CommandLine.h>
-#include <llvm-14/llvm/Support/Error.h>
-#include <llvm-14/llvm/Support/raw_ostream.h>
+#include "consumers.hpp"
 
-static llvm::cl::OptionCategory ToolCategory("autopar options");
+#include <cstdio>
+#include <memory>
+#include <sstream>
+#include <string>
 
-int main(int argc, const char** argv) {
-    llvm::Expected<clang::tooling::CommonOptionsParser> ExpectedParser = clang::tooling::CommonOptionsParser::create(argc, argv, ToolCategory);
+#include "clang/AST/ASTConsumer.h"
+#include "clang/Basic/Diagnostic.h"
+#include "clang/Basic/FileManager.h"
+#include "clang/Basic/SourceManager.h"
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/TargetOptions.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Parse/ParseAST.h"
+#include "clang/Rewrite/Core/Rewriter.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/raw_ostream.h"
 
-    if (!ExpectedParser) {
-        llvm::errs() << "Error: " << llvm::toString(ExpectedParser.takeError()) << "\n";
-        return 1;
-    }
+using namespace clang;
 
-    clang::tooling::CommonOptionsParser &OptionsParser =  ExpectedParser.get();
-    clang::tooling::ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
+int
+main(int argc, char *argv[]) {
+  if (argc != 2) {
+    llvm::errs() << "Usage: autopar <filename>\n";
+    return 1;
+  }
 
-    return 0;
+  CompilerInstance CI;
+  CI.createDiagnostics();
+
+  LangOptions &LO = CI.getLangOpts();
+  LO.CPlusPlus = 1;
+
+  auto TO = std::make_shared<TargetOptions>();
+  TO->Triple = llvm::sys::getDefaultTargetTriple();
+  TargetInfo *TI =
+      TargetInfo::CreateTargetInfo(CI.getDiagnostics(), TO);
+  CI.setTarget(TI);
+
+  CI.createFileManager();
+  FileManager &FileMgr = CI.getFileManager();
+  CI.createSourceManager(FileMgr);
+  SourceManager &SourceMgr = CI.getSourceManager();
+  CI.createPreprocessor(TU_Module);
+  CI.createASTContext();
+
+  Rewriter RW;
+  RW.setSourceMgr(SourceMgr, CI.getLangOpts());
+
+  const FileEntry *FileIn = FileMgr.getFile(argv[1]).get();
+  SourceMgr.setMainFileID(
+      SourceMgr.createFileID(FileIn, SourceLocation(), SrcMgr::C_User));
+  CI.getDiagnosticClient().BeginSourceFile(
+      CI.getLangOpts(), &CI.getPreprocessor());
+
+  MyASTConsumer C(RW);
+
+  ParseAST(CI.getPreprocessor(), &C,
+           CI.getASTContext());
+
+  const RewriteBuffer *RewriteBuf = RW.getRewriteBufferFor(SourceMgr.getMainFileID());
+
+  llvm::outs() << "'" << std::string(RewriteBuf->begin(), RewriteBuf->end()) << "'\n";
+
+  return 0;
 }

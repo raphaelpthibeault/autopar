@@ -1,20 +1,21 @@
-#include <cstdlib>
+#include <iostream>
 
-void a_function(const int a, const int *b) {
-    /* NO CALL, DOES NOT RETURN */
-}
-
-void a_function_with_call(const int a, const int *b) {
-    a_function(a, b);
+void foo(int x) {
+    std::cout << "HELLO\n";
+    std::cout << "WORLD\n";
+    std::cout << "x: " << x;
 }
 
 int main () {
-    int a, *b, c;
+    int x = 10;
 
-    a = 10;
-    b = (int*)malloc(a * sizeof(int));
+    if (x == 10) {
+        std::cout << "HELLO\n";
+    } else {
+        std::cout << "WORKD\n";
+    }
 
-    a_function_with_call(a, b);
+    foo(x);
 
     return 0;
 }

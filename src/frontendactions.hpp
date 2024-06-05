@@ -1,4 +1,0 @@
-#ifndef FRONTENDACTIONS_HPP
-#define FRONTENDACTIONS_HPP
-
-#endif
