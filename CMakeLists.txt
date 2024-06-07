@@ -15,6 +15,7 @@ add_definitions(${LLVM_DEFINITIONS})
 
 add_executable(autopar
     src/main.cpp
+    src/concepts.cpp
 )
 
 target_link_libraries(autopar

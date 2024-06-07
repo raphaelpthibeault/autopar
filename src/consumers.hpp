@@ -4,19 +4,15 @@
 #include "visitors.hpp"
 
 #include <cstdio>
-#include <memory>
-#include <sstream>
-#include <string>
 
 #include "clang/AST/ASTConsumer.h"
-#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 
 using namespace clang;
 
-class MyASTConsumer : public ASTConsumer {
+class TaskCreationASTConsumer : public ASTConsumer {
 public:
-  MyASTConsumer(Rewriter &R) : Visitor(R) {}
+  TaskCreationASTConsumer(Rewriter &R) : Visitor(R) {}
 
   virtual bool HandleTopLevelDecl(DeclGroupRef DR) {
     for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b)
@@ -25,7 +21,7 @@ public:
   }
 
 private:
-  MyASTVisitor Visitor;
+  TaskCreationVisitor Visitor;
 };
 
 #endif

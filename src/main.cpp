@@ -2,10 +2,8 @@
 
 #include <cstdio>
 #include <memory>
-#include <sstream>
 #include <string>
 
-#include "clang/AST/ASTConsumer.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
@@ -55,7 +53,7 @@ main(int argc, char *argv[]) {
   CI.getDiagnosticClient().BeginSourceFile(
       CI.getLangOpts(), &CI.getPreprocessor());
 
-  MyASTConsumer C(RW);
+  TaskCreationASTConsumer C(RW);
 
   ParseAST(CI.getPreprocessor(), &C,
            CI.getASTContext());
