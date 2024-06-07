@@ -16,24 +16,29 @@ int a_function(int *b) {
     return 10;
 }
 
+void a_function(int a, int b, int c) {
+    return;
+}
+
 void a_function_with_call(const int a, const int *b, int &c) {
     a_function(a, b, c);
 }
 
 int main () {
-    int a;
-    int *b;
-    int c;
+    int a, *b, c, *d, e, *g, h;
+    int arr[10];
 
-    a_function(a/2, b, c);
-    a_function_with_call(a, b, c);
-    int d = a_function(b) + a_function(b);
-    int e = a_function(b);
     a_function(a, b, c);
-    a_function_with_call(a+1, b, c);
+    a_function(d);
+    a_function_with_call(e, g, h);
+
 
     int x = 1;
+    int i = f(x);
     const int y = f(x);
+    int z = f(arr[x]);
+
+    a_function(arr[x], arr[i], arr[y]);
 
     return 0;
 }

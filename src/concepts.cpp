@@ -1,6 +1,4 @@
 #include "concepts.hpp"
-#include "clang/AST/Expr.h"
-#include <llvm-14/llvm/Support/Casting.h>
 
 #define READ 0
 #define WRITE 1
@@ -8,6 +6,7 @@
 int
 countCallExprs(const Stmt *s) {
     int count = 0;
+
     for (auto *Child : s->children()) {
         if (Child) {
             if (auto *FCall = llvm::dyn_cast<CallExpr>(Child)) {
@@ -19,11 +18,12 @@ countCallExprs(const Stmt *s) {
             count += countCallExprs(Child);
         }
     }
+
     return count;
 }
 
 DependInfo
-getFCallDependencies(const FunctionDecl *FDecl, const CallExpr *FCall, const LangOptions &LangOpts) {
+getFCallDependencies(const FunctionDecl *FDecl, const CallExpr *FCall, const Rewriter &RW) {
     DependInfo depInfo;
 
     for (unsigned i = 0; i < FDecl->getNumParams(); ++i) {
@@ -39,16 +39,15 @@ getFCallDependencies(const FunctionDecl *FDecl, const CallExpr *FCall, const Lan
             depType = READ;
         }
 
-        auto vars = extractVariables(Arg);
+        auto vars = extractVariables(Arg, RW);
 
         for (const auto &var : vars) {
             if (depType == WRITE) {
-                depInfo.write.push_back(var);
+                depInfo.write.insert(var);
             } else {
-                depInfo.read.push_back(var);
+                depInfo.read.insert(var);
             }
         }
-
     }
 
     return depInfo;
@@ -82,17 +81,26 @@ constructDependClause(const DependInfo & depInfo) {
 }
 
 std::vector<std::string>
-extractVariables(const Expr *expr) {
+extractVariables(const Expr *expr, const Rewriter &RW) {
     std::vector<std::string> vars;
 
     if (const auto *declRef = llvm::dyn_cast<clang::DeclRefExpr>(expr)) {
-           vars.push_back(declRef->getDecl()->getNameAsString());
+        vars.push_back(declRef->getDecl()->getNameAsString());
+    } else if (const auto *arraySubscript = llvm::dyn_cast<clang::ArraySubscriptExpr>(expr)) {
+        const auto *base = arraySubscript->getBase()->IgnoreImplicit();
+        const auto *idx = arraySubscript->getIdx()->IgnoreImplicit();
+
+        auto idxVars = extractVariables(idx, RW);
+        vars.insert(vars.end(), idxVars.begin(), idxVars.end());
+
+        std::string baseStr = RW.getRewrittenText(base->getSourceRange());
+        std::string idxStr = RW.getRewrittenText(idx->getSourceRange());
+
+        vars.push_back(baseStr + "[" + idxStr + "]");
     } else {
         for (auto b = expr->child_begin(), e = expr->child_end(); b != e; ++b) {
-            if (const auto *declRef = llvm::dyn_cast<DeclRefExpr>(*b)) {
-                vars.push_back(declRef->getDecl()->getNameAsString());
-            } else if (*b) {
-                auto subVars = extractVariables(llvm::dyn_cast<Expr>(*b));
+            if (const auto *childExpr = llvm::dyn_cast<clang::Expr>(*b)) {
+                auto subVars = extractVariables(childExpr, RW);
                 vars.insert(vars.end(), subVars.begin(), subVars.end());
             }
         }

@@ -54,7 +54,7 @@ public:
                     const FunctionDecl *CalledFunc = FCall->getDirectCallee();
 
                     if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
-                        DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW.getLangOpts());
+                        DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW); /* MUST BE BEFORE REWRITING */
 
                         std::string varName = VarDecl->getNameAsString();
                         std::string varType = VarDecl->getType().getAsString();
@@ -63,9 +63,8 @@ public:
                         std::string initializer = varName + " = " + RW.getRewrittenText(VarDecl->getInit()->getSourceRange()) + ";";
                         RW.ReplaceText(VarDecl->getSourceRange(), varType + " " + varName);
 
-                        depInfo.write.push_back(varName);
+                        depInfo.write.insert(varName);
                         std::string depClause = constructDependClause(depInfo);
-
                         RW.InsertText(DeclStat->getEndLoc().getLocWithOffset(1), "\n#pragma omp task " + depClause + "\n{\n" + initializer + "\n}\n", true, true);
                     }
 
@@ -82,7 +81,7 @@ public:
     bool VisitCallExpr(CallExpr *FCall) {
         const FunctionDecl *CalledFunc = FCall->getDirectCallee();
         if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && ignoreCalls == 0) {
-            DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW.getLangOpts());
+            DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW);
             std::string depClause = constructDependClause(depInfo);
 
             RW.InsertText(FCall->getBeginLoc(), "#pragma omp task " + depClause + "\n{\n", true, true);
