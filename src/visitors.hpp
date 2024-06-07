@@ -117,6 +117,10 @@ public:
             }
         }
 
+        if (FuncName == "main") {
+            RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp parallel\n#pragma omp master", true, true);
+        }
+
         if (createsTask) {
             RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp taskgroup\n{", true, true);
             RW.InsertText(FuncBody->getEndLoc(), "}\n", true, true);
