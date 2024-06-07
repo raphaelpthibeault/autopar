@@ -18,29 +18,20 @@
 class TaskCreationVisitor : public RecursiveASTVisitor<TaskCreationVisitor> {
 private:
     int ignoreCalls;
+    int funcId;
+    int taskId;
+    std::vector<Function> functions;
+    Rewriter &RW;
 
 public:
     TaskCreationVisitor(Rewriter &R) : RW(R) {
         ignoreCalls = 0;
+        funcId = 0;
+        taskId = 0;
     }
 
-    int countCallExprs(const clang::Stmt *s) const {
-        int count = 0;
-        for (auto *Child : s->children()) {
-            if (Child) {
-                if (auto *FCall = llvm::dyn_cast<CallExpr>(Child)) {
-                    const FunctionDecl *CalledFunc = FCall->getDirectCallee();
-                    if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
-                        ++count;
-                    }
-                }
-                count += countCallExprs(Child);
-            }
-        }
-        return count;
-    }
-
-    bool VisitDeclStmt(DeclStmt *DeclStat) {
+    bool
+    VisitDeclStmt(DeclStmt *DeclStat) {
         int nbCallExprs = countCallExprs(DeclStat);
 
         if (nbCallExprs > 0) {
@@ -65,7 +56,14 @@ public:
 
                         depInfo.write.insert(varName);
                         std::string depClause = constructDependClause(depInfo);
+
+                        if (addTaskWait(depInfo)) {
+                            RW.InsertText(DeclStat->getEndLoc().getLocWithOffset(1), "\n#pragma omp taskwait\n", true, true);
+                        }
+
                         RW.InsertText(DeclStat->getEndLoc().getLocWithOffset(1), "\n#pragma omp task " + depClause + "\n{\n" + initializer + "\n}\n", true, true);
+
+                        addTask(depInfo);
                     }
 
                 } else if (VarDecl->hasInit()) {
@@ -78,14 +76,21 @@ public:
         return true;
     }
 
-    bool VisitCallExpr(CallExpr *FCall) {
+    bool
+    VisitCallExpr(CallExpr *FCall) {
         const FunctionDecl *CalledFunc = FCall->getDirectCallee();
         if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && ignoreCalls == 0) {
             DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW);
             std::string depClause = constructDependClause(depInfo);
 
+            if (addTaskWait(depInfo)) {
+                RW.InsertText(FCall->getBeginLoc(), "#pragma omp taskwait\n\n", true, true);
+            }
+
             RW.InsertText(FCall->getBeginLoc(), "#pragma omp task " + depClause + "\n{\n", true, true);
             RW.InsertText(FCall->getEndLoc().getLocWithOffset(2), "\n}\n", true, true);
+
+            addTask(depInfo);
         }
 
         if (ignoreCalls > 0)
@@ -94,7 +99,8 @@ public:
         return true;
     }
 
-    bool VisitFunctionDecl(FunctionDecl *f) {
+    bool
+    VisitFunctionDecl(FunctionDecl *f) {
         if (!f->hasBody()) return true;
 
         Stmt *FuncBody = f->getBody();
@@ -121,6 +127,8 @@ public:
         }
 
         if (createsTask) {
+            addFunction(FuncName);
+
             RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp taskgroup\n{", true, true);
             RW.InsertText(FuncBody->getEndLoc(), "}\n", true, true);
         }
@@ -129,7 +137,40 @@ public:
     }
 
 private:
-  Rewriter &RW;
+    void
+    addFunction(std::string funcName) {
+        taskId = 0;
+        Function curr;
+        curr.name = funcName;
+        curr.id = funcId++;
+        functions.push_back(curr);
+    }
+
+    void
+    addTask(DependInfo depInfo) {
+        Task curr;
+        curr.depInfo = depInfo;
+        curr.id = taskId++;
+        functions.back().tasks.push_back(curr);
+    }
+
+    bool addTaskWait(DependInfo depInfo) {
+        for (auto task : functions.back().tasks) {
+            for (auto read : depInfo.read) {
+                if (task.depInfo.write.count(read)) {
+                    return true;
+                }
+            }
+            for (auto write : depInfo.write) {
+                if (task.depInfo.write.count(write)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
 };
 
 

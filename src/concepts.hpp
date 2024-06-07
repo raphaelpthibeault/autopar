@@ -13,11 +13,20 @@
 
 using namespace clang;
 
-
-
 struct DependInfo {
     std::set<std::string> read;
     std::set<std::string> write;
+};
+
+struct Task {
+    int id;
+    DependInfo depInfo;
+};
+
+struct Function {
+    int id;
+    std::string name;
+    std::vector<Task> tasks;
 };
 
 int countCallExprs(const Stmt *);

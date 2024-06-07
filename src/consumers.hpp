@@ -14,7 +14,8 @@ class TaskCreationASTConsumer : public ASTConsumer {
 public:
   TaskCreationASTConsumer(Rewriter &R) : Visitor(R) {}
 
-  virtual bool HandleTopLevelDecl(DeclGroupRef DR) {
+  virtual bool
+  HandleTopLevelDecl(DeclGroupRef DR) {
     for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b)
       Visitor.TraverseDecl(*b);
     return true;

@@ -24,6 +24,7 @@ void a_function_with_call(const int a, const int *b, int &c) {
     a_function(a, b, c);
 }
 
+
 int main () {
     int a, *b, c, *d, e, *g, h;
     int arr[10];
@@ -39,6 +40,8 @@ int main () {
     int z = f(arr[x]);
 
     a_function(arr[x], arr[i], arr[y]);
+
+    const int w = f(arr[i]);
 
     return 0;
 }
