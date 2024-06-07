@@ -17,11 +17,11 @@
 
 class TaskCreationVisitor : public RecursiveASTVisitor<TaskCreationVisitor> {
 private:
-    int x;
+    int ignoreCalls;
 
 public:
     TaskCreationVisitor(Rewriter &R) : RW(R) {
-        x = 0;
+        ignoreCalls = 0;
     }
 
     int countCallExprs(const clang::Stmt *s) const {
@@ -41,19 +41,10 @@ public:
     }
 
     bool VisitDeclStmt(DeclStmt *DeclStat) {
-    /*
         int nbCallExprs = countCallExprs(DeclStat);
 
         if (nbCallExprs > 0) {
-            x += nbCallExprs;
-            RW.InsertText(DeclStat->getBeginLoc(), "#pragma omp task\n{\n", true, true);
-            RW.InsertText(DeclStat->getEndLoc().getLocWithOffset(1), "\n}\n", true, true);
-        }
-    */
-        int nbCallExprs = countCallExprs(DeclStat);
-
-        if (nbCallExprs > 0) {
-            x += nbCallExprs;
+            ignoreCalls += nbCallExprs;
         }
 
         for (const auto *Decl : DeclStat->decls()) {
@@ -85,14 +76,12 @@ public:
             }
         }
 
-
-
         return true;
     }
 
     bool VisitCallExpr(CallExpr *FCall) {
         const FunctionDecl *CalledFunc = FCall->getDirectCallee();
-        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && x == 0) {
+        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && ignoreCalls == 0) {
             DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW.getLangOpts());
             std::string depClause = constructDependClause(depInfo);
 
@@ -100,8 +89,8 @@ public:
             RW.InsertText(FCall->getEndLoc().getLocWithOffset(2), "\n}\n", true, true);
         }
 
-        if (x > 0)
-            x--;
+        if (ignoreCalls > 0)
+            ignoreCalls--;
 
         return true;
     }
@@ -132,31 +121,13 @@ public:
             RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp taskgroup\n{", true, true);
             RW.InsertText(FuncBody->getEndLoc(), "}\n", true, true);
         }
-/*
-        if (FuncName == "main") {
-            RW.InsertText(f->getBeginLoc(), "// This is the main function\n", true, true);
-        } else {
-            std::stringstream SSBefore;
-            SSBefore << "// Begin function " << FuncName << " returning " << TypeStr
-                    << "\n";
-            SourceLocation ST = f->getSourceRange().getBegin();
-            RW.InsertText(ST, SSBefore.str(), true, true);
 
-            std::stringstream SSAfter;
-            SSAfter << "\n// End function " << FuncName;
-            ST = FuncBody->getEndLoc().getLocWithOffset(1);
-            RW.InsertText(ST, SSAfter.str(), true, true);
-        }
-*/
         return true;
     }
 
 private:
   Rewriter &RW;
 };
-
-
-
 
 
 #endif
