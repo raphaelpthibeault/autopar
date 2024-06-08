@@ -67,7 +67,6 @@ public:
                     }
 
                 } else if (VarDecl->hasInit()) {
-                    // while loop or recursive function
 
                 }
             }

@@ -5,6 +5,11 @@ int f(int x) {
     return x;
 }
 
+int j(int &x) {
+    x += 2;
+    return x;
+}
+
 void a_function(const int a, const int *b,  int &c) {
     std::cout << "a: " << a;
     std::cout << "b: " << b;
@@ -24,7 +29,6 @@ void a_function_with_call(const int a, const int *b, int &c) {
     a_function(a, b, c);
 }
 
-
 int main () {
     int a, *b, c, *d, e, *g, h;
     int arr[10];
@@ -33,7 +37,6 @@ int main () {
     a_function(d);
     a_function_with_call(e, g, h);
 
-
     int x = 1;
     int i = f(x);
     const int y = f(x);
@@ -41,7 +44,13 @@ int main () {
 
     a_function(arr[x], arr[i], arr[y]);
 
-    const int w = f(arr[i]);
+    const int w = j(arr[x]);
+
+    //x = j(arr[x]);
+
+    i++;
+    z++;
+    arr[x]++;
 
     return 0;
 }

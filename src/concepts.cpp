@@ -39,14 +39,18 @@ getFCallDependencies(const FunctionDecl *FDecl, const CallExpr *FCall, const Rew
             depType = READ;
         }
 
-        auto vars = extractVariables(Arg, RW);
+        Vars vars = extractVariables(Arg, RW);
 
-        for (const auto &var : vars) {
+        for (const auto &var : vars.vars) {
             if (depType == WRITE) {
                 depInfo.write.insert(var);
             } else {
                 depInfo.read.insert(var);
             }
+        }
+
+        for (const auto &idx : vars.idxs) {
+            depInfo.read.insert(idx);
         }
     }
 
@@ -80,29 +84,41 @@ constructDependClause(const DependInfo & depInfo) {
     return dependClause;
 }
 
-std::vector<std::string>
+Vars
 extractVariables(const Expr *expr, const Rewriter &RW) {
-    std::vector<std::string> vars;
+    Vars vars;
 
     if (const auto *declRef = llvm::dyn_cast<clang::DeclRefExpr>(expr)) {
-        vars.push_back(declRef->getDecl()->getNameAsString());
+        vars.vars.insert(declRef->getDecl()->getNameAsString());
     } else if (const auto *arraySubscript = llvm::dyn_cast<clang::ArraySubscriptExpr>(expr)) {
         const auto *base = arraySubscript->getBase()->IgnoreImplicit();
         const auto *idx = arraySubscript->getIdx()->IgnoreImplicit();
 
         auto idxVars = extractVariables(idx, RW);
-        vars.insert(vars.end(), idxVars.begin(), idxVars.end());
+        /*
+        if W[X[y] + z], add to index variables X[y], y, z since they'll be reads
+        */
+        vars.idxs.insert(idxVars.vars.begin(), idxVars.vars.end());
+        vars.idxs.insert(idxVars.idxs.begin(), idxVars.idxs.end());
 
         std::string baseStr = RW.getRewrittenText(base->getSourceRange());
         std::string idxStr = RW.getRewrittenText(idx->getSourceRange());
 
-        vars.push_back(baseStr + "[" + idxStr + "]");
+        vars.vars.insert(baseStr + "[" + idxStr + "]");
     } else {
         for (auto b = expr->child_begin(), e = expr->child_end(); b != e; ++b) {
             if (const auto *childExpr = llvm::dyn_cast<clang::Expr>(*b)) {
                 auto subVars = extractVariables(childExpr, RW);
-                vars.insert(vars.end(), subVars.begin(), subVars.end());
+                vars.vars.insert(subVars.vars.begin(), subVars.vars.end());
+                vars.idxs.insert(subVars.idxs.begin(), subVars.idxs.end());
             }
+        }
+    }
+
+    /* if variable is both an index and a variable, consider it a variable */
+    for (const auto &var : vars.vars) {
+        if (vars.idxs.count(var)) {
+           vars.idxs.erase(var);
         }
     }
 

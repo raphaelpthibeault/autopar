@@ -29,9 +29,14 @@ struct Function {
     std::vector<Task> tasks;
 };
 
+struct Vars {
+    std::set<std::string> vars;
+    std::set<std::string> idxs;
+};
+
 int countCallExprs(const Stmt *);
 DependInfo getFCallDependencies(const FunctionDecl *, const CallExpr *, const Rewriter &);
 std::string constructDependClause(const DependInfo &);
-std::vector<std::string> extractVariables(const Expr *, const Rewriter &);
+Vars extractVariables(const Expr *, const Rewriter &);
 
 #endif
