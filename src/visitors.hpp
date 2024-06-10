@@ -146,13 +146,41 @@ public:
             return true;
         }
 
-        Vars vars = extractVariables(e, RW);
+        const Stmt *curr = e;
+        int nbCallExprs = countCallExprs(curr);
 
-        if (addTaskWait(vars)) {
-            if (auto parent = getParentIfLoop(e, AC)) {
-                RW.InsertText(parent->getBeginLoc(), "\n#pragma omp taskwait\n", true, true);
-            } else {
-                RW.InsertText(e->getBeginLoc(), "\n#pragma omp taskwait\n", true, true);
+        if (nbCallExprs > 0) {
+            ignoreCalls += nbCallExprs;
+
+            for (auto *Child : curr->children()) {
+                if (Child) {
+                    if (auto *FCall = llvm::dyn_cast<CallExpr>(Child)) {
+                        const FunctionDecl *CalledFunc = FCall->getDirectCallee();
+                        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
+                            DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW);
+                            std::string depClause = constructDependClause(depInfo);
+
+                            if (addTaskWait(depInfo)) {
+                                RW.InsertText(e->getBeginLoc(), "#pragma omp taskwait\n\n", true, true);
+                            }
+
+                            RW.InsertText(e->getBeginLoc(), "#pragma omp task " + depClause + "\n{\n", true, true);
+                            RW.InsertText(e->getEndLoc().getLocWithOffset(2), "\n}\n", true, true);
+
+                            addTask(depInfo);
+                        }
+                    }
+                }
+            }
+        } else {
+            Vars vars = extractVariables(e, RW);
+
+            if (addTaskWait(vars)) {
+                if (auto parent = getParentIfLoop(e, AC)) {
+                    RW.InsertText(parent->getBeginLoc(), "\n#pragma omp taskwait\n", true, true);
+                } else {
+                    RW.InsertText(e->getBeginLoc(), "\n#pragma omp taskwait\n", true, true);
+                }
             }
         }
 

@@ -46,8 +46,6 @@ int main () {
 
     int w = j(arr[x]);
 
-    //x = j(arr[x]);
-
     z++;
     arr[x] = 3;
     x = 2;
@@ -57,6 +55,8 @@ int main () {
     while (w < 10) {
         w++;
     }
+
+    x = j(arr[x]);
 
     return 0;
 }
