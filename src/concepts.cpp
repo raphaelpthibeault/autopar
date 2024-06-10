@@ -1,4 +1,6 @@
 #include "concepts.hpp"
+#include "clang/AST/ParentMapContext.h"
+#include "clang/AST/Stmt.h"
 
 #define READ 0
 #define WRITE 1
@@ -123,4 +125,24 @@ extractVariables(const Expr *expr, const Rewriter &RW) {
     }
 
     return vars;
+}
+
+const
+Stmt *getParentIfLoop(const Expr* e, ASTContext &Context) {
+    const Stmt *curr = e;
+    const Stmt *parent = nullptr;
+    ParentMapContext &parentMapContext = Context.getParentMapContext();
+
+    while (curr) {
+        auto parents = parentMapContext.getParents(*curr);
+        if (parents.empty()) break;
+
+        parent = parents[0].get<Stmt>();
+        if (parent && (isa<ForStmt>(parent) || isa<WhileStmt>(parent))) {
+            return parent;
+        }
+        curr = parent;
+    }
+
+    return nullptr;
 }

@@ -1,10 +1,12 @@
 #ifndef CONCEPTS_HPP
 #define CONCEPTS_HPP
 
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/Decl.h"
 
 #include "clang/AST/PrettyPrinter.h"
+#include "clang/AST/Stmt.h"
 #include "clang/AST/Type.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include <llvm-14/llvm/Support/raw_ostream.h>
@@ -38,5 +40,5 @@ int countCallExprs(const Stmt *);
 DependInfo getFCallDependencies(const FunctionDecl *, const CallExpr *, const Rewriter &);
 std::string constructDependClause(const DependInfo &);
 Vars extractVariables(const Expr *, const Rewriter &);
-
+const Stmt *getParentIfLoop(const Expr*, ASTContext &);
 #endif

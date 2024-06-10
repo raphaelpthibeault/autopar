@@ -53,7 +53,7 @@ main(int argc, char *argv[]) {
   CI.getDiagnosticClient().BeginSourceFile(
       CI.getLangOpts(), &CI.getPreprocessor());
 
-  TaskCreationASTConsumer C(RW);
+  TaskCreationASTConsumer C(RW, CI.getASTContext());
 
   ParseAST(CI.getPreprocessor(), &C,
            CI.getASTContext());

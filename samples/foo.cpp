@@ -44,13 +44,19 @@ int main () {
 
     a_function(arr[x], arr[i], arr[y]);
 
-    const int w = j(arr[x]);
+    int w = j(arr[x]);
 
     //x = j(arr[x]);
 
-    i++;
     z++;
-    arr[x]++;
+    arr[x] = 3;
+    x = 2;
+
+    for (i = 0; i < 10; i++) {}
+
+    while (w < 10) {
+        w++;
+    }
 
     return 0;
 }
