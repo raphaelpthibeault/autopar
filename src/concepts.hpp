@@ -37,6 +37,7 @@ struct Vars {
 };
 
 int countCallExprs(const Stmt *);
+bool checkTaskCreation(const Stmt *);
 DependInfo getFCallDependencies(const FunctionDecl *, const CallExpr *, const Rewriter &);
 std::string constructDependClause(const DependInfo &);
 Vars extractVariables(const Expr *, const Rewriter &);

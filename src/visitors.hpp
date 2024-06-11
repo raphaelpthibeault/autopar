@@ -8,6 +8,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/Type.h"
@@ -105,7 +106,7 @@ public:
 
     bool
     VisitFunctionDecl(FunctionDecl *f) {
-        if (!f->hasBody()) return true;
+        if (!f->isDefined()) return true;
 
         Stmt *FuncBody = f->getBody();
 
@@ -115,22 +116,11 @@ public:
         DeclarationName DeclName = f->getNameInfo().getName();
         std::string FuncName = DeclName.getAsString();
 
-        bool createsTask = false;
-        for (Stmt::child_iterator CB = FuncBody->child_begin(), CE = FuncBody->child_end(); CB != CE; ++CB) {
-            if (CallExpr *FCall = llvm::dyn_cast<CallExpr>(*CB)) {
-                FunctionDecl *CalledFunc = FCall->getDirectCallee();
-                if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
-                    createsTask = true;
-                    break;
-                }
-            }
-        }
-
         if (FuncName == "main") {
             RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp parallel\n#pragma omp master", true, true);
         }
 
-        if (createsTask) {
+        if (checkTaskCreation(FuncBody)) {
             addFunction(FuncName);
 
             RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp taskgroup\n{", true, true);

@@ -1,5 +1,7 @@
 #include <iostream>
 
+int function_with_multiple_returns(int,int);
+
 int f(int x) {
     x *= 2;
     return x;
@@ -17,7 +19,6 @@ void a_function(const int a, const int *b,  int &c) {
 }
 
 int a_function(int *b) {
-    std::cout << "B: " << b;
     return 10;
 }
 
@@ -59,4 +60,14 @@ int main () {
     x = j(arr[x]);
 
     return 0;
+}
+
+int function_with_multiple_returns(int &a, int &b) {
+    if (a > b) {
+        a = a_function(&a);
+        return a;
+    } else {
+        b = a_function(&b);
+        return b;
+    }
 }

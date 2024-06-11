@@ -1,4 +1,5 @@
 #include "concepts.hpp"
+#include "clang/AST/Expr.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/Stmt.h"
 
@@ -7,11 +8,13 @@
 
 int
 countCallExprs(const Stmt *s) {
+    if (!s) return 0;
+
     int count = 0;
 
-    for (auto *Child : s->children()) {
+    for (const Stmt *Child : s->children()) {
         if (Child) {
-            if (auto *FCall = llvm::dyn_cast<CallExpr>(Child)) {
+            if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(Child)) {
                 const FunctionDecl *CalledFunc = FCall->getDirectCallee();
                 if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
                     ++count;
@@ -22,6 +25,25 @@ countCallExprs(const Stmt *s) {
     }
 
     return count;
+}
+
+bool checkTaskCreation(const Stmt *s) {
+    if (!s) return false;
+
+    if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(s)) {
+        const FunctionDecl *CalledFunc = FCall->getDirectCallee();
+        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
+            return true;
+        }
+    }
+
+    for (const Stmt *Child : s->children()) {
+        if (checkTaskCreation(Child)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 DependInfo
