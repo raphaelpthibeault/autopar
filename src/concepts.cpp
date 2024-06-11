@@ -27,7 +27,8 @@ countCallExprs(const Stmt *s) {
     return count;
 }
 
-bool checkTaskCreation(const Stmt *s) {
+bool
+checkTaskCreation(const Stmt *s) {
     if (!s) return false;
 
     if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(s)) {
@@ -150,7 +151,7 @@ extractVariables(const Expr *expr, const Rewriter &RW) {
 }
 
 const
-Stmt *getParentIfLoop(const Expr* e, ASTContext &Context) {
+Stmt *getParentIfLoop(const Expr *e, ASTContext &Context) {
     const Stmt *curr = e;
     const Stmt *parent = nullptr;
     ParentMapContext &parentMapContext = Context.getParentMapContext();
