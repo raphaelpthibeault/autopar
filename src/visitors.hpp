@@ -105,6 +105,11 @@ public:
     }
 
     bool
+    TraverseCallExpr(CallExpr *FCall) {
+        return VisitCallExpr(FCall);
+    }
+
+    bool
     VisitFunctionDecl(FunctionDecl *f) {
         if (!f->isDefined()) return true;
 
