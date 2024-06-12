@@ -14,7 +14,10 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/TokenKinds.h"
+#include "clang/Lex/Lexer.h"
 #include "clang/Rewrite/Core/Rewriter.h"
+#include "clang/AST/ParentMapContext.h"
 
 #include "concepts.hpp"
 
@@ -28,12 +31,18 @@ private:
     std::vector<Function> functions;
     Rewriter &RW;
     ASTContext &AC;
+    FunctionDecl *currentFunction;
 
 public:
     TaskCreationVisitor(Rewriter &RW, ASTContext &AC) : RW(RW), AC(AC) {
         ignoreCalls = 0;
         funcId = 0;
         taskId = 0;
+    }
+
+    bool
+    TraverseCallExpr(CallExpr *FCall) {
+        return VisitCallExpr(FCall);
     }
 
     bool
@@ -63,7 +72,7 @@ public:
                         depInfo.write.insert(varName);
                         std::string depClause = constructDependClause(depInfo);
 
-                        if (addTaskWait(depInfo)) {
+                        if (shouldAddTaskWait(depInfo)) {
                             RW.InsertText(DeclStat->getEndLoc().getLocWithOffset(1), "\n#pragma omp taskwait\n", true, true);
                         }
 
@@ -88,7 +97,7 @@ public:
             DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW);
             std::string depClause = constructDependClause(depInfo);
 
-            if (addTaskWait(depInfo)) {
+            if (shouldAddTaskWait(depInfo)) {
                 RW.InsertText(FCall->getBeginLoc(), "#pragma omp taskwait\n\n", true, true);
             }
 
@@ -105,32 +114,36 @@ public:
     }
 
     bool
-    TraverseCallExpr(CallExpr *FCall) {
-        return VisitCallExpr(FCall);
-    }
-
-    bool
     VisitFunctionDecl(FunctionDecl *f) {
         if (!f->isDefined()) return true;
 
         Stmt *FuncBody = f->getBody();
+        std::string FuncName = f->getNameInfo().getName().getAsString();
+        std::string returnTypeStr = f->getReturnType().getAsString();
+        bool taskCreated = checkTaskCreation(FuncBody);
+        currentFunction = f;
 
-        QualType QT = f->getReturnType();
-        std::string TypeStr = QT.getAsString();
+        if (!taskCreated) {
+            return true;
+        }
 
-        DeclarationName DeclName = f->getNameInfo().getName();
-        std::string FuncName = DeclName.getAsString();
+        if (returnTypeStr != "void") {
+            RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n" + returnTypeStr + " autopar_res;\n", true, true);
+        }
 
         if (FuncName == "main") {
             RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp parallel\n#pragma omp master", true, true);
         }
 
-        if (checkTaskCreation(FuncBody)) {
-            addFunction(FuncName);
+        addFunction(FuncName);
+        RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp taskgroup\n{", true, true);
 
-            RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp taskgroup\n{", true, true);
-            RW.InsertText(FuncBody->getEndLoc(), "}\n", true, true);
+        std::string endLabel = "\nautopar_endtaskgrouplabel_" + FuncName + ": ;\n}\n";
+        if (returnTypeStr != "void") {
+            endLabel += "return autopar_res;\n";
         }
+
+        RW.InsertText(FuncBody->getEndLoc(), endLabel, true, true);
 
         return true;
     }
@@ -155,7 +168,7 @@ public:
                             DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW);
                             std::string depClause = constructDependClause(depInfo);
 
-                            if (addTaskWait(depInfo)) {
+                            if (shouldAddTaskWait(depInfo)) {
                                 RW.InsertText(e->getBeginLoc(), "#pragma omp taskwait\n\n", true, true);
                             }
 
@@ -170,7 +183,7 @@ public:
         } else {
             Vars vars = extractVariables(e, RW);
 
-            if (addTaskWait(vars)) {
+            if (shouldAddTaskWait(vars)) {
                 if (auto parent = getParentIfLoop(e, AC)) {
                     RW.InsertText(parent->getBeginLoc(), "\n#pragma omp taskwait\n", true, true);
                 } else {
@@ -178,6 +191,36 @@ public:
                 }
             }
         }
+
+        return true;
+    }
+
+    bool
+    VisitReturnStmt(ReturnStmt *ret) {
+        //ret->printPretty(llvm::outs(), nullptr, AC.getPrintingPolicy());
+
+        if (!currentFunction) {
+            llvm::errs() << "Error: VisitReturnStmt() no current function\n";
+        }
+
+        if (!checkTaskCreation(currentFunction->getBody())) return true;
+
+        std::string assignTxt;
+
+        Expr *retValue = ret->getRetValue();
+        if (retValue) {
+            assignTxt = "autopar_res = " + RW.getRewrittenText(retValue->getSourceRange()) + ";\n";
+        }
+        std::string gotoTxt = "goto apac_endtaskgrouplabel_" + currentFunction->getNameAsString() + ";";
+
+        SourceLocation begin = ret->getBeginLoc();
+        SourceLocation end = ret->getEndLoc().getLocWithOffset(1);
+
+        auto lineText = Lexer::getIndentationForLine(begin, AC.getSourceManager());
+        auto indentation = lineText.substr(0, lineText.find_first_not_of(" \t"));
+
+        SourceRange range(begin, end);
+        RW.ReplaceText(range, "#pragma omp taskwait\n" + indentation.str() + assignTxt + indentation.str() + gotoTxt);
 
         return true;
     }
@@ -209,7 +252,7 @@ private:
     }
 
     bool
-    addTaskWait(DependInfo depInfo) {
+    shouldAddTaskWait(DependInfo depInfo) {
         if (functions.size() == 0) return false;
 
         for (auto task : functions.back().tasks) {
@@ -229,7 +272,7 @@ private:
     }
 
     bool
-    addTaskWait(Vars vars) {
+    shouldAddTaskWait(Vars vars) {
         if (functions.size() == 0) return false;
 
         for (auto task : functions.back().tasks) {
@@ -251,6 +294,5 @@ private:
     }
 
 };
-
 
 #endif
