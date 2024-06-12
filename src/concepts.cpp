@@ -1,7 +1,9 @@
 #include "concepts.hpp"
+#include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/Stmt.h"
+#include <llvm-14/llvm/Support/raw_ostream.h>
 
 #define READ 0
 #define WRITE 1
@@ -150,8 +152,8 @@ extractVariables(const Expr *expr, const Rewriter &RW) {
     return vars;
 }
 
-const
-Stmt *getParentIfLoop(const Expr *e, ASTContext &Context) {
+const Stmt *
+getParentIfLoop(const Expr *e, ASTContext &Context) {
     const Stmt *curr = e;
     const Stmt *parent = nullptr;
     ParentMapContext &parentMapContext = Context.getParentMapContext();
@@ -161,7 +163,7 @@ Stmt *getParentIfLoop(const Expr *e, ASTContext &Context) {
         if (parents.empty()) break;
 
         parent = parents[0].get<Stmt>();
-        if (parent && (isa<ForStmt>(parent) || isa<WhileStmt>(parent))) {
+        if (parent && (llvm::isa<ForStmt>(parent) || llvm::isa<WhileStmt>(parent) || llvm::isa<IfStmt>(parent))) {
             return parent;
         }
         curr = parent;
