@@ -1,8 +1,10 @@
 #include "concepts.hpp"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/Stmt.h"
+#include <llvm-14/llvm/Support/Casting.h>
 #include <llvm-14/llvm/Support/raw_ostream.h>
 
 #define READ 0
@@ -156,18 +158,23 @@ const Stmt *
 getParentIfLoop(const Expr *e, ASTContext &Context) {
     const Stmt *curr = e;
     const Stmt *parent = nullptr;
+
     ParentMapContext &parentMapContext = Context.getParentMapContext();
 
     while (curr) {
         auto parents = parentMapContext.getParents(*curr);
         if (parents.empty()) break;
 
-        parent = parents[0].get<Stmt>();
-        if (parent && (llvm::isa<ForStmt>(parent) || llvm::isa<WhileStmt>(parent) || llvm::isa<IfStmt>(parent))) {
-            return parent;
+        const Stmt *p = parents[0].get<Stmt>();
+        if (p) {
+            if (llvm::isa<ForStmt>(p) || llvm::isa<WhileStmt>(p) || llvm::isa<IfStmt>(p)) {
+                parent = p;
+            }
+            curr = p;
+        } else {
+            break;
         }
-        curr = parent;
     }
 
-    return nullptr;
+    return parent;
 }
