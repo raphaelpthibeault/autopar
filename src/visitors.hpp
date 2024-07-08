@@ -262,7 +262,7 @@ public:
         auto indentation = lineText.substr(0, lineText.find_first_not_of(" \t"));
 
         SourceRange range(begin, end);
-        RW.ReplaceText(range, "#pragma omp taskwait\n" + indentation.str() + assignTxt + indentation.str() + gotoTxt);
+        RW.ReplaceText(range, indentation.str() + assignTxt + indentation.str() + gotoTxt);
 
         return true;
     }
