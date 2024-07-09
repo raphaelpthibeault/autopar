@@ -20,7 +20,7 @@ countCallExprs(const Stmt *s) {
         if (Child) {
             if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(Child)) {
                 const FunctionDecl *CalledFunc = FCall->getDirectCallee();
-                if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
+                if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && CalledFunc->getIdentifier()) {
                     ++count;
                 }
             }
@@ -37,7 +37,7 @@ checkTaskCreation(const Stmt *s) {
 
     if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(s)) {
         const FunctionDecl *CalledFunc = FCall->getDirectCallee();
-        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
+        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && CalledFunc->getIdentifier()) {
             return true;
         }
     }
@@ -118,7 +118,9 @@ extractVariables(const Expr *expr, const Rewriter &RW) {
     Vars vars;
 
     if (const auto *declRef = llvm::dyn_cast<clang::DeclRefExpr>(expr)) {
-        vars.vars.insert(declRef->getDecl()->getNameAsString());
+        if (const auto *id = declRef->getDecl()->getIdentifier()) {
+            vars.vars.insert(id->getName().str());
+        }
     } else if (const auto *arraySubscript = llvm::dyn_cast<clang::ArraySubscriptExpr>(expr)) {
         const auto *base = arraySubscript->getBase()->IgnoreImplicit();
         const auto *idx = arraySubscript->getIdx()->IgnoreImplicit();
@@ -177,4 +179,25 @@ getParentIfLoop(const Expr *e, ASTContext &Context) {
     }
 
     return parent;
+}
+
+const CallExpr *
+findCallExpr(const Stmt * s) {
+    if (!s) return nullptr;
+
+    for (const Stmt *Child : s->children()) {
+        if (Child) {
+            if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(Child)) {
+                const FunctionDecl *CalledFunc = FCall->getDirectCallee();
+                if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isInStdNamespace() && CalledFunc->getIdentifier()) {
+                    return FCall;
+                }
+            }
+            if (const CallExpr *FoundCall = findCallExpr(Child)) {
+                return FoundCall;
+            }
+        }
+    }
+
+    return nullptr;
 }

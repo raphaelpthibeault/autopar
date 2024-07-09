@@ -42,5 +42,6 @@ DependInfo getFCallDependencies(const FunctionDecl *, const CallExpr *, const Re
 std::string constructDependClause(const DependInfo &);
 Vars extractVariables(const Expr *, const Rewriter &);
 const Stmt *getParentIfLoop(const Expr*, ASTContext &);
+const CallExpr *findCallExpr(const Stmt *);
 
 #endif

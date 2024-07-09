@@ -2,6 +2,7 @@
 #define VISITORS_HPP
 
 #include <cstdio>
+#include <llvm-14/llvm/Support/Casting.h>
 #include <llvm-14/llvm/Support/raw_ostream.h>
 #include <string>
 
@@ -80,6 +81,8 @@ public:
 
         if (nbCallExprs > 0) {
             ignoreCalls += nbCallExprs;
+        } else {
+            return true;
         }
 
         for (const auto *Decl : DeclStat->decls()) {
@@ -88,7 +91,7 @@ public:
                     const CallExpr *FCall = llvm::cast<clang::CallExpr>(VarDecl->getInit());
                     const FunctionDecl *CalledFunc = FCall->getDirectCallee();
 
-                    if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
+                    if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && CalledFunc->getIdentifier()) {
                         DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW); /* MUST BE BEFORE REWRITING */
 
                         std::string varName = VarDecl->getNameAsString();
@@ -115,7 +118,43 @@ public:
                         addTask(depInfo);
                     }
 
-                } else if (VarDecl->hasInit()) {
+                } else if (VarDecl->hasInit() && nbCallExprs == 1) {
+                    if (auto *Expr = VarDecl->getInit()->getExprStmt()) {
+                        if (const CallExpr *FCall = findCallExpr(Expr)) {
+                            const FunctionDecl *CalledFunc = FCall->getDirectCallee();
+
+                            if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && CalledFunc->getIdentifier()) {
+                                DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW); /* MUST BE BEFORE REWRITING */
+
+                                std::string varName = VarDecl->getNameAsString();
+                                std::string varType = VarDecl->getType().getAsString();
+                                varType = varType.find("const") != std::string::npos ? varType.substr(6) : varType;
+
+                                std::string initializer = varName + " = " + RW.getRewrittenText(VarDecl->getInit()->getSourceRange()) + ";";
+                                RW.ReplaceText(VarDecl->getSourceRange(), varType + " " + varName);
+
+                                depInfo.write.insert(varName);
+                                std::string depClause = constructDependClause(depInfo);
+
+                                if (shouldAddTaskWait(depInfo)) {
+                                    RW.InsertText(DeclStat->getEndLoc().getLocWithOffset(1), "\n#pragma omp taskwait\n", true, true);
+                                }
+
+                                RW.InsertText(DeclStat->getEndLoc().getLocWithOffset(1), AUTOPAR_PRE_TASK + "\n#pragma omp task " + depClause + " " + AUTOPAR_TASK_CLAUSE +
+                                    "\n{\n" +
+                                    "if (AUTOPAR_createtaskdepth || AUTOPAR_createtasknbr) {\n\tAUTOPAR_nbdepth=AUTOPAR_lnbdepth+1;\n}\n\n" +
+                                    initializer +
+                                    "\n\nif (AUTOPAR_createtasknbr) {\n\t#pragma omp atomic\n\tAUTOPAR_nbtask--;\n}\n" +
+                                    "}\n", true, true);
+
+                                addTask(depInfo);
+                            }
+
+
+
+                        }
+
+                    }
 
                 }
             }
@@ -128,7 +167,7 @@ public:
     VisitCallExpr(CallExpr *FCall) {
         if (!isFromMainFile(FCall->getBeginLoc())) return true;
         const FunctionDecl *CalledFunc = FCall->getDirectCallee();
-        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && ignoreCalls == 0) {
+        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && CalledFunc->getIdentifier() && ignoreCalls == 0) {
             DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW);
             std::string depClause = constructDependClause(depInfo);
 
@@ -203,7 +242,7 @@ public:
                 if (Child) {
                     if (auto *FCall = llvm::dyn_cast<CallExpr>(Child)) {
                         const FunctionDecl *CalledFunc = FCall->getDirectCallee();
-                        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace()) {
+                        if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && CalledFunc->getIdentifier()) {
                             DependInfo depInfo = getFCallDependencies(CalledFunc, FCall, RW);
                             std::string depClause = constructDependClause(depInfo);
 
@@ -281,14 +320,6 @@ private:
     void
     addTask(DependInfo depInfo) {
         Task curr;
-
-        /*
-        for (auto var : depInfo.write) {
-            if (awaited.count(var)) {
-                awaited.erase(var);
-            }
-        }
-        */
 
         curr.depInfo = depInfo;
         curr.id = taskId++;
