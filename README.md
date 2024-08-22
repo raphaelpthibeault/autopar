@@ -2,7 +2,7 @@
 
 A program that performs automatic task parallelization of function calls of C/C++ code with OOP support
 
-# Task Parallelization of Function Calls
+# Task-Based Parallelization
 
 ## Task Creation
 
@@ -160,3 +160,24 @@ Add a global threadprivate variable named nbdepth at the beginning of each progr
 In each taskgroup, the current thread creates a local variable, local_nbdepth, holding a copy of the threadprivate nbdepth. Then, pass in the local_nbdepth as firstprivate in the task pragma to maintain thread privacy, and to initialize with the value from before the parallel region.
 
 Within the parallel region of a task created by the thread, we want to increment separate counts for each task branch. So, if the parallel region creates a task, set nbdepth to local_nbdepth + 1, then spawn the new child task and use that nbdepth in the potential taskgroup created by the child.
+
+# Results 
+
+### Test Cases
+* Quicksort: A program sorts an array of 100 million randonly generated integers, with a test after to validate the sort.
+* Molecular-Dyn: A program simulates 100 iterations of interactions between 10000 particles with a grid distribution of dimension 5^3
+
+### Hardware 
+11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz
+
+### Results
+Time is average runtime per 10 runs, timed using the Linux `time` command.
+
+#### Quicksort Runtime Comparison
+We observe an average speedup of 2.51 with APAR.
+![Quicksort](results/quicksort.png)
+
+#### Molecular Dynamics Runtime Comparison
+We observe an average speedup of 2.22 with APAR.
+![Molecular-Dyn](results/molecular-dyn.png)
+
