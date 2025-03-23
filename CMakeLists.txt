@@ -16,6 +16,11 @@ add_definitions(${LLVM_DEFINITIONS})
 add_executable(autopar
     src/main.cpp
     src/concepts.cpp
+    src/TaskCreationVisitor.cpp
+)
+
+include_directories(
+  inc/
 )
 
 target_link_libraries(autopar

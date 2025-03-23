@@ -1,11 +1,11 @@
-#include "concepts.hpp"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/ParentMapContext.h"
-#include "clang/AST/Stmt.h"
-#include <llvm-14/llvm/Support/Casting.h>
-#include <llvm-14/llvm/Support/raw_ostream.h>
+#include <concepts.hpp>
+#include <clang/AST/Decl.h>
+#include <clang/AST/Expr.h>
+#include <clang/AST/ExprCXX.h>
+#include <clang/AST/ParentMapContext.h>
+#include <clang/AST/Stmt.h>
+#include <llvm-18/llvm/Support/Casting.h>
+#include <llvm-18/llvm/Support/raw_ostream.h>
 
 #define READ 0
 #define WRITE 1
@@ -18,7 +18,7 @@ countCallExprs(const Stmt *s) {
 
     for (const Stmt *Child : s->children()) {
         if (Child) {
-            if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(Child)) {
+            if (const auto *FCall = llvm::dyn_cast<CallExpr>(Child)) {
                 const FunctionDecl *CalledFunc = FCall->getDirectCallee();
                 if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && CalledFunc->getIdentifier()) {
                     ++count;
@@ -35,7 +35,7 @@ bool
 checkTaskCreation(const Stmt *s) {
     if (!s) return false;
 
-    if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(s)) {
+    if (const auto *FCall = llvm::dyn_cast<CallExpr>(s)) {
         const FunctionDecl *CalledFunc = FCall->getDirectCallee();
         if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isStdNamespace() && CalledFunc->getIdentifier()) {
             return true;
@@ -187,7 +187,7 @@ findCallExpr(const Stmt * s) {
 
     for (const Stmt *Child : s->children()) {
         if (Child) {
-            if (const CallExpr *FCall = llvm::dyn_cast<CallExpr>(Child)) {
+            if (const auto *FCall = llvm::dyn_cast<CallExpr>(Child)) {
                 const FunctionDecl *CalledFunc = FCall->getDirectCallee();
                 if (CalledFunc && CalledFunc->isDefined() && !CalledFunc->isInStdNamespace() && CalledFunc->getIdentifier()) {
                     return FCall;

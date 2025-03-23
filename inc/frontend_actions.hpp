@@ -1,32 +1,15 @@
-#ifndef CONSUMERS_HPP
-#define CONSUMERS_HPP
+#pragma once
 
-#include "visitors.hpp"
+#include "consumers.hpp"
 
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Rewrite/Core/Rewriter.h"
-#include "clang/Frontend/FrontendAction.h"
+#include <clang/AST/ASTConsumer.h>
+#include <clang/AST/ASTContext.h>
+#include <clang/Frontend/CompilerInstance.h>
+#include <clang/Rewrite/Core/Rewriter.h>
+#include <clang/Frontend/FrontendAction.h>
 #include <fstream>
 
 using namespace clang;
-
-class TaskCreationASTConsumer : public ASTConsumer {
-private:
-    TaskCreationVisitor Visitor;
-public:
-    TaskCreationASTConsumer(Rewriter &R, ASTContext &AC) : Visitor(R, AC) {}
-
-    virtual bool
-    HandleTopLevelDecl(DeclGroupRef DR) {
-        for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) {
-            Visitor.TraverseDecl(*b);
-        }
-
-        return true;
-    }
-};
 
 static const std::string AUTOPAR_LIMITER_CODE = R"(#include <omp.h>
 #include <cstdlib>
@@ -80,16 +63,15 @@ class TaskCreationFrontendAction : public ASTFrontendAction {
 private:
     Rewriter R;
 public:
-    TaskCreationFrontendAction() {}
+    TaskCreationFrontendAction() = default;
 
-    std::unique_ptr<ASTConsumer>
-    CreateASTConsumer(CompilerInstance &CI, StringRef file) override {
+    std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef file) override {
         ASTContext &AC = CI.getASTContext();
         R.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
         return std::make_unique<TaskCreationASTConsumer>(R, AC);
     }
-    bool
-    BeginSourceFileAction(CompilerInstance &CI) override {
+
+    bool BeginSourceFileAction(CompilerInstance &CI) override {
         const auto &FileID = CI.getSourceManager().getMainFileID();
         const FileEntry *MainFileEntry = CI.getSourceManager().getFileEntryForID(FileID);
 
@@ -98,11 +80,11 @@ public:
         }
 
         llvm::errs() << "Processing main file: " << MainFileEntry->getName() << "\n";
+
         return true;
     }
 
-    void
-    EndSourceFileAction() override {
+    void EndSourceFileAction() override {
         SourceManager &SM = R.getSourceMgr();
         llvm::errs() << "** EndSourceFileAction for: " << SM.getFileEntryForID(SM.getMainFileID())->getName() << "\n";
 
@@ -127,4 +109,3 @@ public:
 
 };
 
-#endif
