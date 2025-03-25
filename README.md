@@ -18,12 +18,12 @@ Encapsulate function bodies into OpenMP taskgroups given the following condition
 Encapsulate function calls into OpenMP tasks given that the function being called is defined by the user.
 Ignoring dependencies for now, I will cover that in the next subsection.
 
-In 1(a) and 1(b) we have an example of a simple function call with either no return value or an ignored return value.
+In 1(a) and 1(b) we have an example of a simple function call to some function foo with either no return value or an ignored return value.
 
 #### 1(a) function call with no return value
 
 ```C++
-fcall(a, b);
+foo(a, b);
 ```
 
 #### 1(b) transformed function call
@@ -31,7 +31,7 @@ fcall(a, b);
 ```C++
 #pragma omp task
 {
-fcall(a, b);
+foo(a, b);
 }
 ```
 
@@ -40,7 +40,7 @@ In 2(a) and 2(b) an example of a function call with a return value. I chose to s
 #### 2(a) function call with return value
 
 ```C++
-const int x = fcall(a, b);
+const int x = foo(a, b);
 ```
 
 #### 2(b) transformed function call
@@ -49,7 +49,7 @@ const int x = fcall(a, b);
 int x;
 #pragma omp task
 {
-x = fcall(a, b);
+x = foo(a, b);
 }
 ```
 
@@ -70,24 +70,24 @@ In 3(b), we see the dependencies expressed in the transformed function call of 3
 #### 3(a) function definition alongside function call and statement
 
 ```C++
-void f(int a, const int *b, int &c) {
+void foo(int a, const int *b, int &c) {
 	...
 }
 ...
-f(x, y, z);
+foo(x, y, z);
 z += 1;
 ```
 
 #### 3(b) transformed function call and explicit barrier
 
 ```C++
-void f(int a, const int *b, int &c) {
+void foo(int a, const int *b, int &c) {
 	...
 }
 ...
 #pragma omp task depend(in: x, y) depend(inout: z)
 {
-f(x, y, z);
+foo(x, y, z);
 }
 #pragma omp taskwait
 z += 1;
@@ -102,7 +102,7 @@ In 4(a) we define a function with multiple returns, and in 4(b) observe the sour
 #### 4(a) function definition
 
 ```C++
-int f(int &a, int &b) {
+int foo(int &a, int &b) {
 ...
 	if (a > b) {
 		int c;
@@ -119,7 +119,7 @@ int f(int &a, int &b) {
 #### 4(b) transformed function definition
 
 ```C++
-int f(int &a, int &b) {
+int foo(int &a, int &b) {
 	int AUTOPAR_res;
 	#pragma omp taskgroup
 	{
@@ -174,10 +174,10 @@ Within the parallel region of a task created by the thread, we want to increment
 Time is average runtime per 10 runs, timed using the Linux `time` command.
 
 #### Quicksort Runtime Comparison
-We observe an average speedup of 2.51 with APAR.
+We observe an average speedup of 2.51 with AUTOPAR.
 ![Quicksort](results/quicksort.png)
 
 #### Molecular Dynamics Runtime Comparison
-We observe an average speedup of 2.22 with APAR.
+We observe an average speedup of 2.22 with AUTOPAR.
 ![Molecular-Dyn](results/molecular-dyn.png)
 
