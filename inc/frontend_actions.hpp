@@ -79,14 +79,14 @@ public:
             return false;
         }
 
-        llvm::errs() << "Processing main file: " << MainFileEntry->getName() << "\n";
+        llvm::outs() << "Processing main file: " << MainFileEntry->getName() << "\n";
 
         return true;
     }
 
     void EndSourceFileAction() override {
         SourceManager &SM = R.getSourceMgr();
-        llvm::errs() << "** EndSourceFileAction for: " << SM.getFileEntryForID(SM.getMainFileID())->getName() << "\n";
+        llvm::outs() << "*** Parallelization completed for: " << SM.getFileEntryForID(SM.getMainFileID())->getName() << "\n";
 
         const RewriteBuffer *RewriteBuf = R.getRewriteBufferFor(SM.getMainFileID());
 

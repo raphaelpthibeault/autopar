@@ -1,6 +1,6 @@
 # AUTOPAR
 
-A program that performs automatic task parallelization of function calls of C/C++ code with OOP support
+A program that performs automatic task parallelization of function calls of C/C++ code with OOP support. Is essentially a parallelized code generator given serial/sequential input. 
 
 # Task-Based Parallelization
 
@@ -181,3 +181,20 @@ We observe an average speedup of 2.51 with AUTOPAR.
 We observe an average speedup of 2.22 with AUTOPAR.
 ![Molecular-Dyn](results/molecular-dyn.png)
 
+# Dependencies
+- OpenMP
+- LLVM-18 and Clang-18
+- CMake >= 3.29
+
+# Building and Running
+```Bash
+# Build the CMake way (from project root):
+mkdir build/ && cd build
+cmake ..
+make
+# then run from the build directory:
+./autopar <list of serial code files>
+# or make install and run from /usr/local/bin (assuming it's in PATH):
+make install
+autopar <list of serial code files>
+```

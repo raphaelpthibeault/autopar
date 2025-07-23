@@ -142,6 +142,7 @@ bool TaskCreationVisitor::VisitFunctionDecl(FunctionDecl *f) {
     }
 
     addFunction(FuncName);
+    llvm::outs() << "Parallelizing " << FuncName << "\n";
     RW.InsertText(FuncBody->getBeginLoc().getLocWithOffset(1), "\n#pragma omp taskgroup\n{\n\n" + AUTOPAR_TASK_LIMITER_CODE_TASKGROUP + "\n", true, true);
 
     std::string endLabel = "\nAUTOPAR_endtaskgrouplabel_" + FuncName + ": ;\n}\n";
