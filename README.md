@@ -1,6 +1,6 @@
 # AUTOPAR
 
-A program that performs automatic task parallelization of function calls of C/C++ code with OOP support. Is essentially a parallelized code generator given serial/sequential input. 
+A program that performs automatic task-based parallelization of function calls of C/C++ code with OOP support. Autopar is essentially a parallelized code generator given serial/sequential input. 
 
 # Task-Based Parallelization
 
